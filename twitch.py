@@ -7,6 +7,7 @@ class TwitchActions:
         self.client_id = os.environ["CLIENT_ID"]
         self.client_secret = os.environ["CLIENT_SECRET"]
         self.token = None
+        self.refresh_token()
 
     def refresh_token(self):
         url = "https://id.twitch.tv/oauth2/token"
