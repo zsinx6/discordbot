@@ -10,6 +10,7 @@ ipdb = "*"
 "discord.py" = "*"
 black = "==19.10b0"
 requests = "*"
+python-dateutil = "*"
 
 [requires]
 python_version = "3.8"
