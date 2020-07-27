@@ -1,6 +1,8 @@
 import requests
 import os
 
+from dateutil import parser
+
 
 class TwitchActions:
     def __init__(self):
@@ -40,5 +42,5 @@ class TwitchActions:
 
         data = result.json()["data"]
 
-        online = [user["user_name"] for user in data]
+        online = {user["user_name"]: parser.parse(user["started_at"]) for user in data}
         return online
