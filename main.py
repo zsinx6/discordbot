@@ -1,71 +1,115 @@
+import asyncio
 import discord
 import logging
 import os
 import pickle
 
+from datetime import datetime
 from twitch import TwitchActions
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-client = discord.Client()
 
+class TheBot(discord.Client):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-@client.event
-async def on_ready():
-    logging.info("We have logged in as {0.user}".format(client))
-
-
-@client.event
-async def on_message(message):
-    if message.author == client.user:
-        return
-
-    if message.content.startswith("$hello"):
-        await message.channel.send("Hello!")
-
-    if message.content.startswith("add"):
-        user_login = message.content.split()[1]
-        bot.subscribe_user_channel(message.channel.id, message.author.id, user_login)
-        await message.channel.send(f"Added user '{user_login}'!")
-
-    if message.content.startswith("remove"):
-        user_login = message.content.split()[1]
-        bot.unssubscribe_user_channel(message.channel.id, message.author.id, user_login)
-        await message.channel.send(f"Removed user '{user_login}'!")
-
-
-class TheBot:
-    def __init__(self):
         self.users_data = {}
+        self.online_users = {}
+
         try:
-            with open("data.json", "rb") as fp:
+            with open("data.dat", "rb") as fp:
                 self.users_data = pickle.load(fp)
         except FileNotFoundError:
-            logging.warning("Failed to load json")
+            logging.warning("Failed to load data")
+        try:
+            with open("online.dat", "rb") as fp:
+                self.online_users = pickle.load(fp)
+        except FileNotFoundError:
+            logging.warning("Failed to load online")
 
-    def subscribe_user_channel(self, channel, user, user_login):
-        if not self.users_data.get(user):
-            self.users_data[user] = {channel: {"user_login": []}}
-        self.users_data[user][channel]["user_login"].append(user_login)
+        self.bg_task = self.loop.create_task(self.check_online())
+
+    async def on_ready(self):
+        logging.info("We have logged in as {0.user}".format(self))
+
+    async def on_message(self, message):
+        if message.author == self.user:
+            return
+
+        if message.content.startswith("add"):
+            user_login = message.content.split()[1]
+            logging.info(f"Added user {user_login}")
+            self.subscribe_user_channel(message.channel.id, user_login)
+            await message.channel.send(f"Added user '{user_login}'!")
+
+        if message.content.startswith("remove"):
+            user_login = message.content.split()[1]
+            logging.info(f"Removed user {user_login}")
+            self.unssubscribe_user_channel(message.channel.id, user_login)
+            await message.channel.send(f"Removed user '{user_login}'!")
+
+    def subscribe_user_channel(self, channel, user_login):
+        if not self.users_data.get(channel):
+            self.users_data[channel] = []
+        self.users_data[channel].append(user_login)
         self.dump_users()
 
-    def unsubscribe_user_channel(self, channel, user, user_login):
-        if not self.users_data.get(user):
+    def unsubscribe_user_channel(self, channel, user_login):
+        if not self.users_data.get(channel):
             return
-        self.users_data[user][channel]["user_login"].remove(user_login)
-        if not self.users_data[user][channel]["user_login"]:
-            del self.users_data[user][channel]
-        if not self.users_data[user]:
-            del self.users_data[user]
+        self.users_data[channel].remove(user_login)
+        if not self.users_data[channel]:
+            del self.users_data[channel]
         self.dump_users()
 
     def dump_users(self):
-        with open("data.json", "wb") as fp:
+        with open("data.dat", "wb") as fp:
             pickle.dump(self.users_data, fp)
+
+    async def check_online(self):
+        await self.wait_until_ready()
+        while not self.is_closed():
+            for channel, channel_data in self.users_data.items():
+                online_users = twitch_client.is_live(channel_data)
+                self.mark_online(online_users, channel)
+
+            for channel_id, channel_data in self.online_users.items():
+                channel = self.get_channel(channel_id)
+                for user_login in channel_data.keys():
+                    if not channel_data[user_login]["sent"]:
+                        logging.info(f"{user_login} is live!")
+                        await channel.send(
+                            f"{user_login} is live now! https://twitch.tv/{user_login}"
+                        )
+                        self.online_users[channel_id][user_login]["sent"] = True
+                        with open("online.dat", "wb") as fp:
+                            pickle.dump(self.online_users, fp)
+            await asyncio.sleep(3 * 60)
+
+    def mark_online(self, users_data, channel):
+        now = datetime.now()
+        if not self.online_users.get(channel):
+            self.online_users[channel] = {}
+        for user, started_at in users_data.items():
+            online_user = self.online_users[channel].get(user)
+            self.online_users[channel][user] = {
+                "started_at": started_at,
+                "updated_at": now,
+                "sent": online_user is not None
+            }
+
+        for user in self.users_data[channel]:
+            online_user = self.online_users[channel].get(user)
+            if online_user and online_user["updated_at"] != now:
+                del self.online_users[channel][user]
+        with open("online.dat", "wb") as fp:
+            pickle.dump(self.online_users, fp)
 
 
 twitch_client = TwitchActions()
-bot = TheBot()
+
+client = TheBot()
 client.run(os.environ["BOT_TOKEN"])
