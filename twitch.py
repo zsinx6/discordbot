@@ -50,3 +50,14 @@ class TwitchActions:
                          "thumbnail_url": user["thumbnail_url"].format(width=400, height=230)}
             online[user["user_name"]] = user_data
         return online
+
+    def get_vod_url(self, user_id):
+        url = "https://api.twitch.tv/helix/videos/"
+        query = {"user_id": user_id}
+        header = {"client-id": self.client_id, "Authorization": f"Bearer {self.token}"}
+
+        result = requests.get(url, headers=header, params=query)
+
+        data = result.json()["data"]
+        if data:
+            return data[0]["url"]
