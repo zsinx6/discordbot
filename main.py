@@ -93,11 +93,13 @@ class TheBot(discord.Client):
         now = datetime.now()
         if not self.online_users.get(channel):
             self.online_users[channel] = {}
-        for user, started_at in users_data.items():
+        for user, user_data in users_data.items():
             online_user = self.online_users[channel].get(user)
             self.online_users[channel][user] = {
-                "started_at": started_at,
+                "started_at": user_data["started_at"],
                 "updated_at": now,
+                "user_id": user_data["user_id"],
+                "thumbnail_url": user_data["thumbnail_url"],
                 "sent": online_user is not None
             }
 
