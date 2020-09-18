@@ -74,15 +74,24 @@ class TheBot(discord.Client):
         while not self.is_closed():
             for channel, channel_data in self.users_data.items():
                 online_users = twitch_client.is_live(channel_data)
+                twitch_client.get_user_thumbnail(online_users)
                 self.mark_online(online_users, channel)
 
             for channel_id, channel_data in self.online_users.items():
                 channel = self.get_channel(channel_id)
                 for user_login in channel_data.keys():
                     if not channel_data[user_login]["sent"]:
+                        embed = discord.Embed(
+                            title=online_users[user_login]["title"], colour=0x6441A4
+                        )
+                        embed.set_thumbnail(
+                            url=online_users[user_login]["profile_image_url"]
+                        )
+                        embed.set_image(url=online_users[user_login]["thumbnail_url"])
                         logging.info(f"{user_login} is live!")
                         await channel.send(
-                            f"{user_login} is live now! https://twitch.tv/{user_login}"
+                            f"{user_login} is live now! https://twitch.tv/{user_login}",
+                            embed=embed,
                         )
                         self.online_users[channel_id][user_login]["sent"] = True
                         with open("online.dat", "wb") as fp:
@@ -100,7 +109,7 @@ class TheBot(discord.Client):
                 "updated_at": now,
                 "user_id": user_data["user_id"],
                 "thumbnail_url": user_data["thumbnail_url"],
-                "sent": online_user is not None
+                "sent": online_user is not None,
             }
 
         for user in self.users_data[channel]:
