@@ -58,7 +58,8 @@ class TwitchActions:
     def get_user_thumbnail(self, online_data):
         if not online_data:
             return
-        url = f"https://api.twitch.tv/helix/users?"
+        self.refresh_token()
+        url = "https://api.twitch.tv/helix/users?"
         url_users = ""
         for user_name, data in online_data.items():
             url_users += f"&id={data['user_id']}"
@@ -76,6 +77,7 @@ class TwitchActions:
                     ]
 
     def get_vod_url(self, user_id):
+        self.refresh_token()
         url = "https://api.twitch.tv/helix/videos/"
         query = {"user_id": user_id}
         header = {"client-id": self.client_id, "Authorization": f"Bearer {self.token}"}
