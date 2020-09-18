@@ -56,6 +56,8 @@ class TwitchActions:
         return online
 
     def get_user_thumbnail(self, online_data):
+        if not online_data:
+            return
         url = f"https://api.twitch.tv/helix/users?"
         url_users = ""
         for user_name, data in online_data.items():
