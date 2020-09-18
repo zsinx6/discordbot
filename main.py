@@ -69,6 +69,18 @@ class TheBot(discord.Client):
         with open("data.dat", "wb") as fp:
             pickle.dump(self.users_data, fp)
 
+    async def edit_message(self, channel_id, user, message_id):
+        channel = self.get_channel(channel_id)
+        message = await channel.fetch_message(message_id)
+        vod_url = twitch_client.get_vod_url(
+            self.users_data[channel_id][user]["user_id"]
+        )
+        if "was online" in message.content:
+            return
+        await message.edit(
+            content=f"{user} was online, check the vod: {vod_url}", embed=None
+        )
+
     async def check_online(self):
         await self.wait_until_ready()
         while not self.is_closed():
