@@ -53,16 +53,19 @@ class TheBot(discord.Client):
 
     def subscribe_user_channel(self, channel, user_login):
         if not self.users_data.get(channel):
-            self.users_data[channel] = []
-        self.users_data[channel].append(user_login)
+            self.users_data[channel] = {}
+        self.users_data[channel][user_login] = {}
         self.dump_users()
 
     def unsubscribe_user_channel(self, channel, user_login):
         if not self.users_data.get(channel):
             return
-        self.users_data[channel].remove(user_login)
-        if not self.users_data[channel]:
+        if not self.users_data[channel].get(user_login):
+            return
+        del self.users_data[channel][user_login]
+        if not self.users_data.get(channel):
             del self.users_data[channel]
+
         self.dump_users()
 
     def dump_users(self):
@@ -85,9 +88,9 @@ class TheBot(discord.Client):
         await self.wait_until_ready()
         while not self.is_closed():
             for channel, channel_data in self.users_data.items():
-                online_users = twitch_client.is_live(channel_data)
+                online_users = twitch_client.is_live(list(channel_data.keys()))
                 twitch_client.get_user_thumbnail(online_users)
-                self.mark_online(online_users, channel)
+                await self.mark_online(online_users, channel)
 
             for channel_id, channel_data in self.online_users.items():
                 channel = self.get_channel(channel_id)
@@ -101,16 +104,22 @@ class TheBot(discord.Client):
                         )
                         embed.set_image(url=online_users[user_login]["thumbnail_url"])
                         logging.info(f"{user_login} is live!")
-                        await channel.send(
+                        message = await channel.send(
                             f"{user_login} is live now! https://twitch.tv/{user_login}",
                             embed=embed,
                         )
+                        message_id = message.id
                         self.online_users[channel_id][user_login]["sent"] = True
+                        self.users_data[channel_id][user_login]["message_id"] = message_id
+                        self.users_data[channel_id][user_login]["channel_id"] = channel.id
+                        user_id = online_users[user_login]["user_id"]
+                        self.users_data[channel_id][user_login]["user_id"] = user_id
+                        self.dump_users()
                         with open("online.dat", "wb") as fp:
                             pickle.dump(self.online_users, fp)
             await asyncio.sleep(3 * 60)
 
-    def mark_online(self, users_data, channel):
+    async def mark_online(self, users_data, channel):
         now = datetime.now()
         if not self.online_users.get(channel):
             self.online_users[channel] = {}
@@ -122,12 +131,19 @@ class TheBot(discord.Client):
                 "user_id": user_data["user_id"],
                 "thumbnail_url": user_data["thumbnail_url"],
                 "sent": online_user is not None,
+                "title": user_data["title"],
             }
 
-        for user in self.users_data[channel]:
+        for user in self.users_data[channel].keys():
             online_user = self.online_users[channel].get(user)
             if online_user and online_user["updated_at"] != now:
                 del self.online_users[channel][user]
+
+        for user in self.users_data[channel].keys():
+            if users_data.get(user) is None:
+                message_id = self.users_data[channel][user]["message_id"]
+                await self.edit_message(channel, user, message_id)
+
         with open("online.dat", "wb") as fp:
             pickle.dump(self.online_users, fp)
 
