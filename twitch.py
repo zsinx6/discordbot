@@ -45,10 +45,14 @@ class TwitchActions:
         online = {user["user_name"]: parser.parse(user["started_at"]) for user in data}
         online = {}
         for user in data:
-            user_data = {"started_at": parser.parse(user["started_at"]),
-                         "user_id": user["user_id"],
-                         "thumbnail_url": user["thumbnail_url"].format(width=400, height=230)}
-            online[user["user_name"]] = user_data
+            user_data = {
+                "started_at": parser.parse(user["started_at"]),
+                "user_id": user["user_id"],
+                "thumbnail_url": user["thumbnail_url"].format(width=400, height=230),
+                "title": user["title"],
+            }
+            online[user["user_name"].lower()] = user_data
+
         return online
 
     def get_vod_url(self, user_id):
