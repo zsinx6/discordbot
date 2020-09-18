@@ -55,6 +55,24 @@ class TwitchActions:
 
         return online
 
+    def get_user_thumbnail(self, online_data):
+        url = f"https://api.twitch.tv/helix/users?"
+        url_users = ""
+        for user_name, data in online_data.items():
+            url_users += f"&id={data['user_id']}"
+        url += url_users[1:]
+        header = {"client-id": self.client_id, "Authorization": f"Bearer {self.token}"}
+        result = requests.get(url, headers=header)
+
+        data = result.json()["data"]
+
+        for user_name in online_data.keys():
+            for user_json in data:
+                if user_json["login"] in online_data.keys():
+                    online_data[user_name]["profile_image_url"] = user_json[
+                        "profile_image_url"
+                    ]
+
     def get_vod_url(self, user_id):
         url = "https://api.twitch.tv/helix/videos/"
         query = {"user_id": user_id}
